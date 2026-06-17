@@ -1,0 +1,210 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Карта офиса — LAN Device Map</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: #f5f5f5;
+            color: #222;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        header {
+            width: 100%;
+            padding: 20px 30px;
+            background: #fff;
+            border-bottom: 1px solid #ddd;
+        }
+        header h1 { font-size: 22px; font-weight: 600; color: #111; }
+        header span { color: #666; font-size: 14px; font-weight: 400; margin-left: 10px; }
+        main {
+            flex: 1;
+            width: 100%;
+            max-width: 1200px;
+            padding: 30px 20px;
+        }
+        .map-container {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 2px 12px rgba(0,0,0,.08);
+            padding: 20px;
+            overflow: auto;
+        }
+        .map-container svg {
+            display: block;
+            width: 100%;
+            height: auto;
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+        .room-polygon {
+            fill: #f8f8f8;
+            stroke: #333;
+            stroke-width: 1.5;
+            transition: fill .2s, stroke .2s;
+            cursor: pointer;
+        }
+        .room-polygon:hover {
+            fill: #e3f2fd;
+            stroke: #1565c0;
+            stroke-width: 2;
+        }
+        .room-polygon.active {
+            fill: #bbdefb;
+            stroke: #0d47a1;
+            stroke-width: 2.5;
+        }
+        .room-label {
+            font-size: 11px;
+            fill: #333;
+            font-weight: 500;
+            text-anchor: middle;
+            dominant-baseline: central;
+            pointer-events: none;
+            user-select: none;
+        }
+        .room-label.small { font-size: 9px; }
+        .room-label.sub { font-size: 8px; fill: #888; }
+        .info-panel {
+            display: none;
+            margin-top: 20px;
+            padding: 16px 20px;
+            background: #fff;
+            border-radius: 10px;
+            box-shadow: 0 2px 12px rgba(0,0,0,.08);
+            border-left: 4px solid #1565c0;
+        }
+        .info-panel.visible { display: block; }
+        .info-panel h2 { font-size: 18px; margin-bottom: 4px; }
+        .info-panel p { color: #666; font-size: 14px; }
+        footer {
+            padding: 16px 30px;
+            color: #999;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>LAN Device Map <span>— план офиса</span></h1>
+    </header>
+
+    <main>
+        <div class="map-container">
+            <svg viewBox="0 0 1000 700" xmlns="http://www.w3.org/2000/svg">
+                <!-- Внешний контур -->
+                <rect x="25" y="25" width="950" height="650" fill="none" stroke="#222" stroke-width="2.5"/>
+
+                {% for room in rooms %}
+                <polygon
+                    class="room-polygon"
+                    data-code="{{ room.code }}"
+                    data-name="{{ room.name }}"
+                    points="{{ room.coordinates }}"
+                    fill="{{ room.fill_color }}"
+                />
+                {% endfor %}
+
+                <!-- Внутренние стены (поверх комнат) -->
+                <g stroke="#333" stroke-width="1.5" fill="none">
+                    <!-- Левое крыло — внешняя стена -->
+                    <rect x="30" y="30" width="200" height="340" rx="2"/>
+
+                    <!-- Перегородка в левом крыле -->
+                    <line x1="30" y1="200" x2="230" y2="200"/>
+
+                    <!-- Центральная зона — внешняя стена -->
+                    <rect x="230" y="30" width="460" height="340" rx="2"/>
+
+                    <!-- Перегородка лаунж/кухня -->
+                    <line x1="230" y1="200" x2="690" y2="200"/>
+
+                    <!-- Перегородка кухня/санузлы -->
+                    <line x1="500" y1="200" x2="500" y2="370"/>
+
+                    <!-- Перегородка санузлов -->
+                    <line x1="500" y1="285" x2="690" y2="285"/>
+
+                    <!-- Перегородка кухня/верх -->
+                    <line x1="500" y1="30" x2="500" y2="200"/>
+
+                    <!-- Архив — внешняя стена (верхняя правая часть) -->
+                    <rect x="690" y="30" width="280" height="160" rx="2"/>
+
+                    <!-- Нижнее крыло — внешняя стена -->
+                    <rect x="230" y="370" width="740" height="200" rx="2"/>
+
+                    <!-- Перегородки в нижнем крыле -->
+                    <line x1="473" y1="370" x2="473" y2="570"/>
+                    <line x1="716" y1="370" x2="716" y2="570"/>
+
+                    <!-- Стена между лаунжем и нижним крылом (коридор слева) -->
+                    <line x1="230" y1="370" x2="690" y2="370"/>
+
+                    <!-- Стена архива справа -->
+                    <line x1="690" y1="190" x2="970" y2="190"/>
+                </g>
+
+                <!-- Названия комнат -->
+                {% for room in rooms %}
+                <text
+                    class="room-label{% if room.name|length > 18 %} small{% endif %}"
+                    x="{{ room.label_x }}"
+                    y="{{ room.label_y }}"
+                    data-code="{{ room.code }}"
+                >{{ room.name }}</text>
+                {% endfor %}
+            </svg>
+        </div>
+
+        <div class="info-panel" id="infoPanel">
+            <h2 id="infoName">—</h2>
+            <p id="infoCode"></p>
+        </div>
+
+        <footer>© LAN Device Map</footer>
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const polygons = document.querySelectorAll('.room-polygon');
+            const labels  = document.querySelectorAll('.room-label');
+            const panel   = document.getElementById('infoPanel');
+            const infoName = document.getElementById('infoName');
+            const infoCode = document.getElementById('infoCode');
+
+            function showInfo(code, name) {
+                infoName.textContent = name;
+                infoCode.textContent = 'Код: ' + code;
+                panel.classList.add('visible');
+            }
+
+            function clearActive() {
+                polygons.forEach(p => p.classList.remove('active'));
+                labels.forEach(l => l.classList.remove('active'));
+            }
+
+            polygons.forEach(poly => {
+                poly.addEventListener('click', () => {
+                    clearActive();
+                    poly.classList.add('active');
+                    const code = poly.dataset.code;
+                    const name = poly.dataset.name;
+                    // Highlight corresponding label
+                    labels.forEach(l => {
+                        if (l.dataset.code === code) l.classList.add('active');
+                    });
+                    showInfo(code, name);
+                });
+            });
+        });
+    </script>
+</body>
+</html>
