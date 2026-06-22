@@ -8,23 +8,64 @@ on:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: landevicemap
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     strategy:
       max-parallel: 4
       matrix:
-        python-version: [3.14]
+        # Тестируем строго на вашей версии 3.14, чтобы окружения CI и вашей машины совпадали
+        python-version: ["3.14"] 
 
     steps:
     - uses: actions/checkout@v4
+    
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v3
+      uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
+        allow-prereleases: true # Разрешаем GitHub Actions скачивать Python 3.14, если он в вашей системе в статусе pre-release
+        cache: 'pip'
+
     - name: Install Dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements.txt
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+    - name: Check Migrations
+      env:
+        DB_ENGINE: django.db.backends.postgresql
+        DB_NAME: landevicemap
+        DB_USER: postgres
+        DB_PASSWORD: postgres
+        DB_HOST: localhost
+        DB_PORT: 5432
+        SECRET_KEY: "ci-test-key"
+      run: |
+        python manage.py makemigrations --check --dry-run
+
     - name: Run Tests
+      env:
+        DB_ENGINE: django.db.backends.postgresql
+        DB_NAME: landevicemap
+        DB_USER: postgres
+        DB_PASSWORD: postgres
+        DB_HOST: localhost
+        DB_PORT: 5432
+        SECRET_KEY: "ci-test-key"
       run: |
         python manage.py test
