@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Карта офиса — LAN Device Map</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         body {
@@ -14,197 +15,443 @@
             min-height: 100vh;
             display: flex;
             flex-direction: column;
-            align-items: center;
         }
         header {
             width: 100%;
             padding: 20px 30px;
             background: #fff;
-            border-bottom: 1px solid #ddd;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
         }
-        header h1 { font-size: 22px; font-weight: 600; color: #111; }
-        header span { color: #666; font-size: 14px; font-weight: 400; margin-left: 10px; }
+        header h1 { font-size: 20px; font-weight: 600; color: #111; }
+        header span { color: #888; font-size: 13px; font-weight: 400; margin-left: 8px; }
+        .toolbar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .toolbar button {
+            padding: 7px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            border: 1px solid #d0d0d0;
+            background: #fff;
+            color: #333;
+            transition: background .15s, border-color .15s;
+        }
+        .toolbar button:hover { background: #f0f0f0; }
+        .toolbar button.primary {
+            background: #1565c0;
+            color: #fff;
+            border-color: #1565c0;
+        }
+        .toolbar button.primary:hover { background: #0d47a1; }
+        .toolbar button.success {
+            background: #2e7d32;
+            color: #fff;
+            border-color: #2e7d32;
+        }
+        .toolbar button.success:hover { background: #1b5e20; }
+        .toolbar button.danger {
+            background: #c62828;
+            color: #fff;
+            border-color: #c62828;
+        }
+        .toolbar button.danger:hover { background: #b71c1c; }
+        .toolbar .badge {
+            font-size: 11px;
+            color: #999;
+            padding: 3px 10px;
+            background: #f5f5f5;
+            border-radius: 4px;
+        }
+        .toolbar .badge.staff { color: #1565c0; background: #e3f2fd; }
+        .toolbar .auth-btn {
+            display: inline-block;
+            padding: 7px 16px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            text-decoration: none;
+            border: 1px solid #d0d0d0;
+            background: #fff;
+            color: #333;
+            transition: background .15s;
+            cursor: pointer;
+        }
+        .toolbar .auth-btn:hover { background: #f0f0f0; }
+        .toolbar .auth-btn.primary {
+            background: #1565c0;
+            color: #fff;
+            border-color: #1565c0;
+        }
+        .toolbar .auth-btn.primary:hover { background: #0d47a1; }
+        .toolbar .auth-form { display: inline; margin: 0; padding: 0; }
+        .toolbar .auth-form .auth-btn {
+            display: inline-block;
+            padding: 7px 16px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            text-decoration: none;
+            border: 1px solid #d0d0d0;
+            background: #fff;
+            color: #333;
+            transition: background .15s;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        .toolbar .auth-form .auth-btn:hover { background: #f0f0f0; }
         main {
             flex: 1;
             width: 100%;
             max-width: 1200px;
-            padding: 30px 20px;
-        }
-        .map-container {
-            background: #fff;
-            border-radius: 12px;
-            box-shadow: 0 2px 12px rgba(0,0,0,.08);
             padding: 20px;
-            overflow: auto;
-        }
-        .map-container svg {
-            display: block;
-            width: 100%;
-            height: auto;
-            max-width: 1100px;
             margin: 0 auto;
         }
-        .room-polygon {
-            fill: #f8f8f8;
-            stroke: #333;
-            stroke-width: 1.5;
-            transition: fill .2s, stroke .2s;
-            cursor: pointer;
+        #canvasContainer {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 2px 12px rgba(0,0,0,.06);
+            padding: 15px;
+            overflow: hidden;
         }
-        .room-polygon:hover {
-            fill: #e3f2fd;
-            stroke: #1565c0;
-            stroke-width: 2;
+        #canvasContainer canvas { display: block; margin: 0 auto; }
+        .status-bar {
+            margin-top: 10px;
+            font-size: 12px;
+            color: #999;
+            display: flex;
+            justify-content: space-between;
         }
-        .room-polygon.active {
-            fill: #bbdefb;
-            stroke: #0d47a1;
-            stroke-width: 2.5;
-        }
-        .room-label {
-            font-size: 11px;
-            fill: #333;
-            font-weight: 500;
-            text-anchor: middle;
-            dominant-baseline: central;
-            pointer-events: none;
-            user-select: none;
-        }
-        .room-label.small { font-size: 9px; }
-        .room-label.sub { font-size: 8px; fill: #888; }
         .info-panel {
             display: none;
-            margin-top: 20px;
-            padding: 16px 20px;
+            margin-top: 14px;
+            padding: 12px 18px;
             background: #fff;
-            border-radius: 10px;
-            box-shadow: 0 2px 12px rgba(0,0,0,.08);
-            border-left: 4px solid #1565c0;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,.06);
+            border-left: 3px solid #1565c0;
         }
         .info-panel.visible { display: block; }
-        .info-panel h2 { font-size: 18px; margin-bottom: 4px; }
-        .info-panel p { color: #666; font-size: 14px; }
+        .info-panel h2 { font-size: 15px; margin-bottom: 2px; }
+        .info-panel p { color: #888; font-size: 12px; }
         footer {
-            padding: 16px 30px;
-            color: #999;
-            font-size: 12px;
+            padding: 14px 30px;
+            color: #bbb;
+            font-size: 11px;
+            text-align: center;
         }
     </style>
 </head>
 <body>
     <header>
-        <h1>LAN Device Map <span>— план офиса</span></h1>
+        <div>
+            <h1>LAN Device Map <span>— конструктор карты офиса</span></h1>
+        </div>
+        <div class="toolbar">
+            {% if user.is_authenticated %}
+                {% if user.is_staff %}
+                    <span class="badge staff">Администратор</span>
+                    <button id="editBtn" class="primary">Редактировать</button>
+                    <button id="saveBtn" class="success" style="display:none">Сохранить</button>
+                {% else %}
+                    <span class="badge">Просмотр</span>
+                {% endif %}
+                <form action="{% url 'admin:logout' %}" method="post" class="auth-form">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{% url 'home' %}">
+                    <button type="submit" class="auth-btn">Выйти</button>
+                </form>
+            {% else %}
+                <a href="{% url 'admin:login' %}?next={% url 'home' %}" class="auth-btn primary">Войти</a>
+            {% endif %}
+        </div>
     </header>
 
     <main>
-        <div class="map-container">
-            <svg viewBox="0 0 1000 700" xmlns="http://www.w3.org/2000/svg">
-                <!-- Внешний контур -->
-                <rect x="25" y="25" width="950" height="650" fill="none" stroke="#222" stroke-width="2.5"/>
-
-                {% for room in rooms %}
-                <polygon
-                    class="room-polygon"
-                    data-code="{{ room.code }}"
-                    data-name="{{ room.name }}"
-                    points="{{ room.coordinates }}"
-                    fill="{{ room.fill_color }}"
-                />
-                {% endfor %}
-
-                <!-- Внутренние стены (поверх комнат) -->
-                <g stroke="#333" stroke-width="1.5" fill="none">
-                    <!-- Левое крыло — внешняя стена -->
-                    <rect x="30" y="30" width="200" height="340" rx="2"/>
-
-                    <!-- Перегородка в левом крыле -->
-                    <line x1="30" y1="200" x2="230" y2="200"/>
-
-                    <!-- Центральная зона — внешняя стена -->
-                    <rect x="230" y="30" width="460" height="340" rx="2"/>
-
-                    <!-- Перегородка лаунж/кухня -->
-                    <line x1="230" y1="200" x2="690" y2="200"/>
-
-                    <!-- Перегородка кухня/санузлы -->
-                    <line x1="500" y1="200" x2="500" y2="370"/>
-
-                    <!-- Перегородка санузлов -->
-                    <line x1="500" y1="285" x2="690" y2="285"/>
-
-                    <!-- Перегородка кухня/верх -->
-                    <line x1="500" y1="30" x2="500" y2="200"/>
-
-                    <!-- Архив — внешняя стена (верхняя правая часть) -->
-                    <rect x="690" y="30" width="280" height="160" rx="2"/>
-
-                    <!-- Нижнее крыло — внешняя стена -->
-                    <rect x="230" y="370" width="740" height="200" rx="2"/>
-
-                    <!-- Перегородки в нижнем крыле -->
-                    <line x1="473" y1="370" x2="473" y2="570"/>
-                    <line x1="716" y1="370" x2="716" y2="570"/>
-
-                    <!-- Стена между лаунжем и нижним крылом (коридор слева) -->
-                    <line x1="230" y1="370" x2="690" y2="370"/>
-
-                    <!-- Стена архива справа -->
-                    <line x1="690" y1="190" x2="970" y2="190"/>
-                </g>
-
-                <!-- Названия комнат -->
-                {% for room in rooms %}
-                <text
-                    class="room-label{% if room.name|length > 18 %} small{% endif %}"
-                    x="{{ room.label_x }}"
-                    y="{{ room.label_y }}"
-                    data-code="{{ room.code }}"
-                >{{ room.name }}</text>
-                {% endfor %}
-            </svg>
+        <div id="canvasContainer">
+            <canvas id="floorCanvas"></canvas>
         </div>
-
+        <div class="status-bar">
+            <span id="modeHint">Наведите на комнату для просмотра информации</span>
+            <span id="roomCount"></span>
+        </div>
         <div class="info-panel" id="infoPanel">
             <h2 id="infoName">—</h2>
             <p id="infoCode"></p>
         </div>
-
         <footer>© LAN Device Map</footer>
     </main>
 
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const polygons = document.querySelectorAll('.room-polygon');
-            const labels  = document.querySelectorAll('.room-label');
-            const panel   = document.getElementById('infoPanel');
+        (function() {
+            const roomsData = {{ rooms_json|safe }};
+            const isStaff = {{ user.is_staff|lower }};
+
+            const container = document.getElementById('canvasContainer');
+            const modeHint = document.getElementById('modeHint');
+            const roomCount = document.getElementById('roomCount');
+            const infoPanel = document.getElementById('infoPanel');
             const infoName = document.getElementById('infoName');
             const infoCode = document.getElementById('infoCode');
+            const editBtn = document.getElementById('editBtn');
+            const saveBtn = document.getElementById('saveBtn');
 
-            function showInfo(code, name) {
-                infoName.textContent = name;
-                infoCode.textContent = 'Код: ' + code;
-                panel.classList.add('visible');
-            }
+            const W = 1000, H = 700;
+            let editMode = false;
+            const roomRects = {}, roomLabels = {};
 
-            function clearActive() {
-                polygons.forEach(p => p.classList.remove('active'));
-                labels.forEach(l => l.classList.remove('active'));
-            }
-
-            polygons.forEach(poly => {
-                poly.addEventListener('click', () => {
-                    clearActive();
-                    poly.classList.add('active');
-                    const code = poly.dataset.code;
-                    const name = poly.dataset.name;
-                    // Highlight corresponding label
-                    labels.forEach(l => {
-                        if (l.dataset.code === code) l.classList.add('active');
-                    });
-                    showInfo(code, name);
-                });
+            const canvas = new fabric.Canvas('floorCanvas', {
+                width: W, height: H,
+                selection: false,
+                preserveObjectStacking: true,
+                backgroundColor: '#fafafa',
             });
-        });
+
+            // ---------- Responsive ----------
+            function fitCanvas() {
+                const w = container.clientWidth - 30;
+                const s = Math.min(w / W, 1);
+                canvas.setWidth(W * s);
+                canvas.setHeight(H * s);
+                canvas.setZoom(s);
+                canvas.renderAll();
+            }
+            window.addEventListener('resize', fitCanvas);
+
+            // ---------- Outer building contour ----------
+            const pad = 30;
+            const outer = new fabric.Rect({
+                left: pad, top: pad,
+                width: W - 2 * pad,
+                height: H - 2 * pad,
+                fill: 'transparent',
+                stroke: '#222',
+                strokeWidth: 2.5,
+                strokeDashArray: null,
+                selectable: false,
+                evented: false,
+                rx: 3, ry: 3,
+            });
+            canvas.add(outer);
+
+            // ---------- Room colours ----------
+            const palette = [
+                'rgba(21,101,192,0.10)',  // blue
+                'rgba(46,125,50,0.10)',   // green
+                'rgba(198,40,40,0.10)',   // red
+                'rgba(245,127,23,0.10)',  // orange
+                'rgba(106,27,154,0.10)',  // purple
+                'rgba(0,131,143,0.10)',   // teal
+                'rgba(121,85,72,0.10)',   // brown
+                'rgba(255,193,7,0.10)',   // amber
+                'rgba(233,30,99,0.10)',   // pink
+                'rgba(96,125,139,0.10)',  // blue-grey
+                'rgba(255,87,34,0.10)',   // deep-orange
+            ];
+            const strokePalette = [
+                'rgba(21,101,192,0.35)',
+                'rgba(46,125,50,0.35)',
+                'rgba(198,40,40,0.35)',
+                'rgba(245,127,23,0.35)',
+                'rgba(106,27,154,0.35)',
+                'rgba(0,131,143,0.35)',
+                'rgba(121,85,72,0.35)',
+                'rgba(255,193,7,0.35)',
+                'rgba(233,30,99,0.35)',
+                'rgba(96,125,139,0.35)',
+                'rgba(255,87,34,0.35)',
+            ];
+
+            // ---------- Rooms ----------
+            roomsData.forEach(function(room, i) {
+                const ci = i % palette.length;
+                const rect = new fabric.Rect({
+                    left: room.x,
+                    top: room.y,
+                    width: room.width,
+                    height: room.height,
+                    fill: palette[ci],
+                    stroke: strokePalette[ci],
+                    strokeWidth: 1.2,
+                    selectable: false,
+                    evented: true,
+                    hasControls: false,
+                    hasBorders: false,
+                    lockRotation: true,
+                    roomId: room.id,
+                    roomName: room.name,
+                    roomCode: room.code,
+                    rx: 2, ry: 2,
+                });
+
+                const label = new fabric.Text(room.name, {
+                    left: room.x + room.width / 2,
+                    top: room.y + room.height / 2,
+                    fontSize: 11,
+                    fill: '#333',
+                    textAlign: 'center',
+                    originX: 'center',
+                    originY: 'center',
+                    selectable: false,
+                    evented: false,
+                    roomId: room.id,
+                    fontWeight: 500,
+                });
+
+                canvas.add(rect);
+                canvas.add(label);
+                roomRects[room.id] = rect;
+                roomLabels[room.id] = label;
+            });
+
+            roomCount.textContent = 'Комнат: ' + roomsData.length;
+
+            // ---------- View hover ----------
+            canvas.on('mouse:over', function(opt) {
+                const obj = opt.target;
+                if (!obj || !obj.roomId || editMode || obj.type !== 'rect') return;
+                obj.set({ fill: obj.fill.replace('0.10', '0.25'), strokeWidth: 1.8 });
+                canvas.renderAll();
+            });
+
+            canvas.on('mouse:out', function(opt) {
+                const obj = opt.target;
+                if (!obj || !obj.roomId || editMode || obj.type !== 'rect') return;
+                const ci = roomsData.findIndex(r => r.id === obj.roomId) % palette.length;
+                obj.set({ fill: palette[ci], strokeWidth: 1.2 });
+                canvas.renderAll();
+            });
+
+            // ---------- Click info ----------
+            canvas.on('mouse:down', function(opt) {
+                const obj = opt.target;
+                if (editMode) return;
+                if (obj && obj.roomId && obj.type === 'rect') {
+                    infoName.textContent = obj.roomName;
+                    infoCode.textContent = obj.roomCode;
+                    infoPanel.classList.add('visible');
+                } else {
+                    infoPanel.classList.remove('visible');
+                }
+            });
+
+            // ---------- Modified resize/drag ----------
+            canvas.on('object:modified', function(opt) {
+                const obj = opt.target;
+                if (!obj || !obj.roomId || obj.type !== 'rect') return;
+                obj.set({
+                    width: obj.width * obj.scaleX,
+                    height: obj.height * obj.scaleY,
+                    scaleX: 1, scaleY: 1,
+                });
+                const label = roomLabels[obj.roomId];
+                if (label) {
+                    label.set({ left: obj.left + obj.width / 2, top: obj.top + obj.height / 2 });
+                }
+                canvas.renderAll();
+            });
+
+            // ---------- Edit mode ----------
+            function enterEditMode(on) {
+                editMode = on;
+                roomsData.forEach(function(room, i) {
+                    const rect = roomRects[room.id];
+                    if (!rect) return;
+                    const ci = i % palette.length;
+                    rect.set({
+                        selectable: on,
+                        evented: true,
+                        hasControls: on,
+                        hasBorders: on,
+                        fill: on ? 'rgba(255,249,196,0.35)' : palette[ci],
+                        stroke: on ? 'rgba(245,127,23,0.6)' : strokePalette[ci],
+                        strokeWidth: on ? 1.8 : 1.2,
+                    });
+                    if (!on) {
+                        rect.set({ fill: palette[ci], stroke: strokePalette[ci] });
+                    }
+                });
+                canvas.selection = on;
+                canvas.renderAll();
+
+                if (editBtn) {
+                    editBtn.textContent = on ? 'Отменить' : 'Редактировать';
+                    editBtn.className = on ? 'danger' : 'primary';
+                }
+                if (saveBtn) saveBtn.style.display = on ? 'inline-block' : 'none';
+                modeHint.textContent = on
+                    ? 'Перетаскивайте и изменяйте размер комнат'
+                    : 'Наведите на комнату для просмотра информации';
+                infoPanel.classList.remove('visible');
+            }
+
+            if (editBtn) {
+                editBtn.addEventListener('click', function() { enterEditMode(!editMode); });
+            }
+
+            // ---------- Save ----------
+            function getCSRFToken() {
+                for (let c of document.cookie.split(';')) {
+                    c = c.trim();
+                    if (c.startsWith('csrftoken=')) return c.substring(10);
+                }
+                return '';
+            }
+
+            if (saveBtn) {
+                saveBtn.addEventListener('click', async function() {
+                    const updates = roomsData.map(function(room) {
+                        const rect = roomRects[room.id];
+                        return {
+                            id: room.id,
+                            x: Math.round(rect.left),
+                            y: Math.round(rect.top),
+                            width: Math.round(rect.width),
+                            height: Math.round(rect.height),
+                        };
+                    });
+
+                    saveBtn.disabled = true;
+                    saveBtn.textContent = 'Сохранение…';
+
+                    try {
+                        const resp = await fetch('/api/rooms/save/', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRFToken': getCSRFToken(),
+                            },
+                            body: JSON.stringify({ rooms: updates }),
+                        });
+                        const result = await resp.json();
+                        if (result.status === 'ok') {
+                            alert('Сохранено (' + result.updated + ' комнат)');
+                            enterEditMode(false);
+                        } else {
+                            alert('Ошибка: ' + (result.message || 'неизвестная ошибка'));
+                        }
+                    } catch (err) {
+                        alert('Ошибка сети: ' + err.message);
+                    } finally {
+                        saveBtn.disabled = false;
+                        saveBtn.textContent = 'Сохранить';
+                    }
+                });
+            }
+
+            // ---------- Init ----------
+            fitCanvas();
+            canvas.renderAll();
+        })();
     </script>
 </body>
 </html>

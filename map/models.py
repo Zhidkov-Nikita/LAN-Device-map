@@ -4,11 +4,11 @@ from django.db import models
 class Room(models.Model):
     name = models.CharField(max_length=100, verbose_name="Название")
     code = models.CharField(max_length=20, unique=True, verbose_name="Код комнаты")
-    coordinates = models.TextField(verbose_name="SVG-путь (polygon points)")
-    label_x = models.PositiveSmallIntegerField(default=0, verbose_name="Позиция названия X")
-    label_y = models.PositiveSmallIntegerField(default=0, verbose_name="Позиция названия Y")
+    x = models.IntegerField(default=0, verbose_name="Координата X")
+    y = models.IntegerField(default=0, verbose_name="Координата Y")
+    width = models.IntegerField(default=100, verbose_name="Ширина")
+    height = models.IntegerField(default=100, verbose_name="Высота")
     floor = models.PositiveSmallIntegerField(default=1, verbose_name="Этаж")
-    fill_color = models.CharField(max_length=7, default="#f8f8f8", verbose_name="Цвет заливки")
 
     class Meta:
         ordering = ["floor", "name"]
