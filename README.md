@@ -47,7 +47,7 @@ LAN-Device-map/
 ### 1. Клонирование
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/Zhidkov-Nikita/LAN-Device-map.git
 cd LAN-Device-map
 ```
 
