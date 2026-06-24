@@ -1,5 +1,5 @@
 from django.db import migrations
-
+from django.contrib.auth.hashers import make_password
 # Массив данных полностью переписан под актуальные координаты и структуру вашей таблицы из PostgreSQL
 ROOMS = [
     {
@@ -96,12 +96,29 @@ def unseed(apps, schema_editor):
     Room = apps.get_model("map", "Room")
     Room.objects.filter(code__in=[r["code"] for r in ROOMS]).delete()
 
+def create_superuser(apps, schema_editor):
+    User = apps.get_model('auth', 'User') 
+
+    username = "admin"
+    email = "admin@admin.com"
+    password = "admin"
+
+    if not User.objects.filter(username=username).exists():
+        User.objects.create(
+            username=username,
+            email=email,
+            password=make_password(password),
+            is_superuser=True,
+            is_staff=True,
+        )
+
 
 class Migration(migrations.Migration):
     dependencies = [
-        # Убедитесь, что зависимость указывает на миграцию, которая создала поля x, y, width, height
         ("map", "0001_initial"),
+        ("auth", "__latest__"),
     ]
     operations = [
         migrations.RunPython(seed, unseed),
+        migrations.RunPython(create_superuser),
     ]
