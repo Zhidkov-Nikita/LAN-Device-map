@@ -79,15 +79,19 @@ class SaveRoomsAPITest(TestCase):
         self.room = Room.objects.create(
             name="Тест", code="API-TST-01", x=10, y=10, width=100, height=100
         )
-        self.staff = User.objects.create_user(
-            username="admin", password="pass", is_staff=True
+        self.staff, _ = User.objects.get_or_create(
+            username="api-staff", defaults={"is_staff": True},
         )
-        self.user = User.objects.create_user(
-            username="user", password="pass", is_staff=False
+        self.staff.set_password("pass")
+        self.staff.save()
+        self.user, _ = User.objects.get_or_create(
+            username="api-user", defaults={"is_staff": False},
         )
+        self.user.set_password("pass")
+        self.user.save()
 
     def test_staff_can_save(self):
-        self.client.login(username="admin", password="pass")
+        self.client.login(username="api-staff", password="pass")
         payload = {
             "rooms": [
                 {"id": self.room.id, "x": 50, "y": 60, "width": 120, "height": 130}
@@ -123,7 +127,7 @@ class SaveRoomsAPITest(TestCase):
         self.assertEqual(resp.json()["status"], "error")
 
     def test_non_staff_cannot_save(self):
-        self.client.login(username="user", password="pass")
+        self.client.login(username="api-user", password="pass")
         payload = {
             "rooms": [
                 {"id": self.room.id, "x": 50, "y": 60, "width": 120, "height": 130}
@@ -139,7 +143,7 @@ class SaveRoomsAPITest(TestCase):
 
     def test_save_multiple_rooms(self):
         r2 = Room.objects.create(name="R2", code="API-MULTI-01", x=0, y=0, width=50, height=50)
-        self.client.login(username="admin", password="pass")
+        self.client.login(username="api-staff", password="pass")
         payload = {
             "rooms": [
                 {"id": self.room.id, "x": 10, "y": 20, "width": 30, "height": 40},
@@ -157,7 +161,7 @@ class SaveRoomsAPITest(TestCase):
         self.assertEqual(result["updated"], 2)
 
     def test_invalid_json_returns_400(self):
-        self.client.login(username="admin", password="pass")
+        self.client.login(username="api-staff", password="pass")
         resp = self.client.post(
             reverse("save_rooms"),
             data="not json",
